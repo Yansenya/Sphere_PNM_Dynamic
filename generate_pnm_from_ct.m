@@ -85,20 +85,22 @@ G = D .* (pi .* throat_radius_m.^2) ./ max(throat_length_m, eps);
 %% Assemble incidence matrix
 [B, K] = assembleIncidence(N, pore1, pore2, G);
 
-%% Package output structure and save
+%% Package output structure in legacy format and save
+shape_factor = ones(M, 1);  % use unit shape factor as placeholder
+
 PNM = struct();
-PNM.meta = struct('R', R, 'phi_target', phi_target, 'phi_achieved', phi_final, ...
+PNM.meta = struct('R', R, 'target_phi', phi_target, 'phi_achieved', phi_final, ...
                   'beta', beta, 'sample_diameter', sample_diameter, ...
-                  'lattice_spacing', lattice_s, 'jitter_sigma', jitter_sigma);
-PNM.P = struct('coords', coords, 'radius', pore_radius_m, 'diameter', pore_diam_m, ...
-               'is_surface', is_surface);
-PNM.T = struct('pore1', pore1, 'pore2', pore2, 'diameter', throat_diam_m, ...
-               'radius', throat_radius_m, 'length', throat_length_m, 'conductance', G);
+                  'lattice', opts.lattice, 'lattice_s', lattice_s, ...
+                  'jitter_sigma', jitter_sigma, 'k_candidate', opts.k_candidate);
+PNM.P = struct('coords', coords, 'r_p', pore_radius_m, 'is_surface', is_surface);
+PNM.T = struct('pore1', pore1, 'pore2', pore2, 'r_t', throat_radius_m, ...
+               'L_geom', throat_length_m, 'shape_factor', shape_factor);
 PNM.graph = struct('B', B, 'K', spdiags(K, 0, M, M));
 PNM.summary = struct('num_pores', N, 'num_throats', M);
 
-save('PNM_CT.mat', 'PNM', '-v7.3');
-fprintf('Saved PNM_CT.mat with %d pores and %d throats.\n', N, M);
+save('PNM.mat', 'PNM', '-v7.3');
+fprintf('Saved PNM.mat with %d pores and %d throats.\n', N, M);
 
 %% Visualization: 3D network
 figure('Name','Pore Network Visualization');
@@ -124,16 +126,13 @@ hold off;
 log_pore_diam = log10(pore_diam_m * 1e6);
 log_throat_diam = log10(throat_diam_m * 1e6);
 
-figure('Name','Pore Diameter Distribution');
-histogram(log_pore_diam, 'BinWidth', 0.05, 'FaceColor', [0.2 0.4 0.7]);
-xlabel('log_{10}(Pore diameter [\mum])');
+figure('Name','Pore/Throat Diameter Distributions');
+hold on;
+histogram(log_pore_diam, 'BinWidth', 0.05, 'FaceColor', [0.2 0.4 0.7], 'FaceAlpha', 0.7);
+histogram(log_throat_diam, 'BinWidth', 0.05, 'FaceColor', [0.7 0.3 0.2], 'FaceAlpha', 0.7);
+xlabel('log_{10}(Diameter [\mum])');
 ylabel('Count');
-title('Pore diameter distribution');
+title('Pore and throat diameter distributions');
+legend({'Pores','Throats'});
 grid on;
-
-figure('Name','Throat Diameter Distribution');
-histogram(log_throat_diam, 'BinWidth', 0.05, 'FaceColor', [0.7 0.3 0.2]);
-xlabel('log_{10}(Throat diameter [\mum])');
-ylabel('Count');
-title('Throat diameter distribution');
-grid on;
+hold off;
